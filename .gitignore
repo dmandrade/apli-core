@@ -1,0 +1,15 @@
+# System
+.*
+!.gitignore
+!.gitkeep
+!ide/*
+!.phpstorm.meta.php
+
+# Composer
+/vendor
+composer.lock
+
+#Apli
+
+#Test
+/phpunit.xml

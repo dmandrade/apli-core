@@ -3,7 +3,7 @@
     "description": "Aplí Framework core package.",
     "homepage": "https://github.com/dmandrade/apli-core",
     "license": "LGPL-2.0-or-later",
-    "minimum-stability": "beta",
+    "minimum-stability": "dev",
     "require": {
         "php": ">=5.6",
         "apli/framework": "~1.0",

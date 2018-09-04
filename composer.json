@@ -25,7 +25,6 @@
             "Apli\\Core\\Test\\": "test/"
         },
         "files": [
-            "src/Core/Utilities/helpers.php"
         ]
     },
     "extra": {

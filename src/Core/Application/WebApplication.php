@@ -13,6 +13,7 @@
 namespace Apli\Core\Application;
 
 use Apli\Application\AbstractWebApplication;
+use Apli\Core\Http\Request;
 use Apli\Data\Map;
 use Apli\Environment\Environment;
 use Apli\Http\Message\Response;
@@ -75,6 +76,7 @@ class WebApplication extends AbstractWebApplication
         Environment $environment = null
     )
     {
+        $request = $request ?: Request::capture();
         $this->config = $config instanceof Map ? $config : new Map();
         $this->name     = $this->config->get('name', $this->name);
         $this->rootPath = $this->config->get('path.root', $this->rootPath);

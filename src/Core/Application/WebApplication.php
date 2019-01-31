@@ -24,6 +24,7 @@ use Apli\Router\Router;
  * Class WebApplication
  *
  * @property-read  Emitter  $emitter
+ * @property-read  Router  $router
  *
  * @package Apli\Core\Application
  */

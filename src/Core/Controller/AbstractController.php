@@ -22,10 +22,19 @@ namespace Apli\Core\Controller;
 
 use Apli\Core\Http\Request;
 use Apli\Core\Http\Response;
+use Apli\Core\Mvc\MvcResolver;
 use Apli\IO\Input;
 
 abstract class AbstractController
 {
+
+    /**
+     * MVC group name.
+     *
+     * @var  string
+     */
+    protected $name;
+
     /**
      * @var Request
      */
@@ -34,6 +43,10 @@ abstract class AbstractController
      * @var Response
      */
     protected $response;
+    /**
+     * @var MvcResolver
+     */
+    protected $mvcResolver;
 
     /**
      * @var Input
@@ -46,7 +59,20 @@ abstract class AbstractController
     public function __construct()
     {
         $this->response = new Response();
+        $this->mvcResolver = new MvcResolver();
+        $this->init();
     }
+
+    /**
+     * Init this class.
+     *
+     * @return  void
+     */
+    protected function init()
+    {
+        // Override it if you need.
+    }
+
 
     /**
      * @param Request $request
@@ -81,6 +107,46 @@ abstract class AbstractController
 
         // Now we return result to package that it will handle response.
         return $this->processSuccess($result);
+    }
+
+    /**
+     * Get view object
+     *
+     * @param null   $name
+     * @param string $format
+     */
+    public function getView($name = null, $format = 'html')
+    {
+        $name = $name ?: $this->getName();
+
+        // Find if package exists
+        $viewName = sprintf('%s\%s%sView', ucfirst($name), ucfirst($name), ucfirst($format));
+
+        // Use MvcResolver to find view class.
+        $class = $this->mvcResolver->getViewResolver()->resolve($viewName);
+
+        return new $class;
+    }
+
+    /**
+     * @param int $backwards
+     * @return string
+     */
+    public function getName($backwards = 2)
+    {
+        if(!$this->name) {
+            $this->name = $this->mvcResolver->guessName(static::class, $backwards);
+        }
+
+        return $this->name;
+    }
+
+    /**
+     * @param string $name
+     */
+    public function setName($name)
+    {
+        $this->name = $name;
     }
 
     /**
@@ -141,14 +207,11 @@ abstract class AbstractController
      *
      * @param \Exception $e
      *
-     * @return bool
      * @throws \Exception
      */
     public function processFailure(\Exception $e = null)
     {
         throw $e;
-
-        return false;
     }
 
     /**

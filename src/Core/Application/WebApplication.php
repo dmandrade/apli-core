@@ -13,17 +13,17 @@
 namespace Apli\Core\Application;
 
 use Apli\Application\AbstractWebApplication;
-use Apli\Core\Http\Request;
+use Apli\Core\Http\HttpFactory;
 use Apli\Data\Map;
 use Apli\Environment\Environment;
-use Apli\Http\Message\Response;
-use Apli\Http\Message\ServerRequest;
+use Apli\Http\HttpFactoryInterface;
+use Apli\Uri\UriException;
 use Apli\Router\Router;
+use Exception;
 
 /**
  * Class WebApplication
  *
- * @property-read  Emitter  $emitter
  * @property-read  Router  $router
  *
  * @package Apli\Core\Application
@@ -52,13 +52,6 @@ class WebApplication extends AbstractWebApplication
     protected $rootPath;
 
     /**
-     * Property middlewares.
-     *
-     * @var  Psr7ChainBuilder
-     */
-    protected $middlewares;
-
-    /**
      * Property router.
      *
      * @var  Router
@@ -66,60 +59,60 @@ class WebApplication extends AbstractWebApplication
     protected $router;
 
     /**
-     * AbstractWebApplication constructor.
-     * @param ServerRequest|null $request
-     * @param Map|null     $config
-     * @param Environment|null   $environment
+     * @var array
+     */
+    protected $allowGetProperties = [
+        'config',
+        'router',
+        'logger'
+    ];
+
+    /**
+     * WebApplication constructor.
+     *
+     * @param HttpFactoryInterface|null $httpFactory
+     * @param Map|null                    $config
+     * @param Environment|null            $environment
+     * @throws UriException
      */
     public function __construct(
-        ServerRequest $request = null,
+        HttpFactoryInterface $httpFactory = null,
         Map $config = null,
         Environment $environment = null
     )
     {
-        $request = $request ?: Request::capture();
-        $this->config = $config instanceof Map ? $config : new Map();
+        parent::__construct($httpFactory, $config, $environment);
+
         $this->name     = $this->config->get('name', $this->name);
         $this->rootPath = $this->config->get('path.root', $this->rootPath);
-
-        parent::__construct($request, $this->config, $environment);
-
         $this->set('execution.start', microtime(true));
         $this->set('execution.memory', memory_get_usage());
     }
 
     /**
-     * Custom initialisation method.
+     * Method to dispatch http route request
      *
-     * Called at the end of the AbstractApplication::__construct() method.
-     * This is for developers to inject initialisation code for their application classes.
-     *
-     * @return void
-     */
-    protected function init()
-    {
-    }
-
-    /**
-     * Method to dispatch http reoute request
-     *
-     * @return Response
+     * @return mixed
+     * @throws Exception
      */
     public function doExecute()
     {
-        return $this->router->dispatch($this->request);
+        $route = explode('/', trim(@$_GET['r'], '/'));
+
+        if ($this->router === null) {
+            throw (new Exception('this->Router was not set', - 2));
+        }
+
+        return $this->getRouter()->callRoute($route);
     }
 
     /**
      * @return Router
      */
-    public function getRouter()
+    public function getRouter(): Router
     {
         if (!$this->router) {
-            /** @var Router $router */
-            $router = new Router();
-
-            $this->router = $router;
+            $this->router = new Router();
         }
 
         return $this->router;
@@ -130,7 +123,7 @@ class WebApplication extends AbstractWebApplication
      *
      * @return  string
      */
-    public function getMode()
+    public function getMode(): string
     {
         return $this->mode;
     }
@@ -142,31 +135,10 @@ class WebApplication extends AbstractWebApplication
      *
      * @return  static  Return self to support chaining.
      */
-    public function setMode($mode)
+    public function setMode($mode): self
     {
         $this->mode = $mode;
 
         return $this;
-    }
-
-    /**
-     * is utilized for reading data from inaccessible members.
-     *
-     * @param   $name  string
-     *
-     * @return  mixed
-     */
-    public function __get($name)
-    {
-
-        if ($name === 'router') {
-            return $this->getRouter();
-        }
-
-        if ($name === 'logger') {
-            return $this->getLogger();
-        }
-
-        return parent::__get($name);
     }
 }

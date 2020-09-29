@@ -13,12 +13,9 @@
 namespace Apli\Core\View;
 
 /**
- * Created by PhpStorm.
- * User: Danilo
- * Date: 31/01/2019
- * Time: 15:49
+ * Class HtmlView
+ * @package Apli\Core\View
  */
-
 class HtmlView extends AbstractView
 {
 

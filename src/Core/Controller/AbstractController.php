@@ -24,7 +24,16 @@ use Apli\Core\Http\Request;
 use Apli\Core\Http\Response;
 use Apli\Core\Mvc\MvcResolver;
 use Apli\IO\Input;
+use ErrorException;
+use Exception;
+use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ResponseInterface;
+use Throwable;
 
+/**
+ * Class AbstractController
+ * @package Apli\Core\Controller
+ */
 abstract class AbstractController
 {
 
@@ -39,6 +48,10 @@ abstract class AbstractController
      * @var Request
      */
     protected $request;
+    /**
+     * @var array
+     */
+    protected $params;
     /**
      * @var Response
      */
@@ -59,8 +72,16 @@ abstract class AbstractController
     public function __construct()
     {
         $this->response = new Response();
-        $this->mvcResolver = new MvcResolver();
         $this->init();
+    }
+
+    protected function getMvcResolver()
+    {
+        if(!$this->mvcResolver) {
+            $this->mvcResolver = new MvcResolver();
+        }
+
+        return $this->mvcResolver;
     }
 
     /**
@@ -76,44 +97,40 @@ abstract class AbstractController
 
     /**
      * @param Request $request
-     * @return bool
-     * @throws \Throwable
+     * @param mixed   ...$params
+     * @return mixed
+     * @throws Throwable
      */
-    public function __invoke(Request $request) {
+    public function __invoke($request, $params) {
+        $result = false;
         try {
             $this->request = $request;
+            $this->params = $params;
 
             $this->prepareExecute();
 
-            $result = $this->doExecute();
-
-            $result = $this->postExecute($result);
-        } catch (ValidateFailException $e) {
-            return $this->processFailure($e);
-        } catch (\Exception $e) {
-            throw $e;
-        } catch (\Throwable $t) {
+            $result = $this->postExecute($this->doExecute());
+        } catch (Exception $e) {
+            $this->processFailure($e);
+        } catch (Throwable $t) {
             // You can do some error handling in processFailure(), for example: rollback the transaction.
-            $this->processFailure(new \ErrorException($t->getMessage(), $t->getCode(), E_ERROR, $t->getFile(),
+            $this->processFailure(new ErrorException($t->getMessage(), $t->getCode(), E_ERROR, $t->getFile(),
                 $t->getLine(), $t));
 
             throw $t;
         }
 
         if ($result === false) {
-            // You can do some error handling in processFailure(), for example: rollback the transaction.
-            return $this->processFailure(new \Exception('Unknown Error'));
+            $this->processFailure(new Exception('Unknown Error'));
         }
 
-        // Now we return result to package that it will handle response.
         return $this->processSuccess($result);
     }
 
     /**
-     * Get view object
-     *
      * @param null   $name
      * @param string $format
+     * @return mixed
      */
     public function getView($name = null, $format = 'html')
     {
@@ -123,7 +140,7 @@ abstract class AbstractController
         $viewName = sprintf('%s\%s%sView', ucfirst($name), ucfirst($name), ucfirst($format));
 
         // Use MvcResolver to find view class.
-        $class = $this->mvcResolver->getViewResolver()->resolve($viewName);
+        $class = $this->getMvcResolver()->getViewResolver()->resolve($viewName);
 
         return new $class;
     }
@@ -132,10 +149,10 @@ abstract class AbstractController
      * @param int $backwards
      * @return string
      */
-    public function getName($backwards = 2)
+    public function getName($backwards = 2): string
     {
         if(!$this->name) {
-            $this->name = $this->mvcResolver->guessName(static::class, $backwards);
+            $this->name = $this->getMvcResolver()->guessName(static::class, $backwards);
         }
 
         return $this->name;
@@ -144,7 +161,7 @@ abstract class AbstractController
     /**
      * @param string $name
      */
-    public function setName($name)
+    public function setName(string $name): void
     {
         $this->name = $name;
     }
@@ -152,10 +169,13 @@ abstract class AbstractController
     /**
      * @return Input
      */
-    public function getInput()
+    public function getInput(): Input
     {
         if (!$this->input) {
-            $this->input = new Input;
+            $input = new Input(array_merge((array) $this->request, $this->params));
+            $input->request = new Input((array) $this->request);
+            $input->route = new Input($this->params);
+            $this->setInput($input);
         }
 
         return $this->input;
@@ -168,7 +188,7 @@ abstract class AbstractController
      *
      * @return  static  Return self to support chaining.
      */
-    public function setInput(Input $input)
+    protected function setInput(Input $input): self
     {
         $this->input = $input;
 
@@ -177,10 +197,8 @@ abstract class AbstractController
 
     /**
      * A hook before main process executing.
-     *
-     * @return mixed
      */
-    protected function prepareExecute()
+    protected function prepareExecute(): void
     {
     }
 
@@ -205,11 +223,11 @@ abstract class AbstractController
     /**
      * Process failure.
      *
-     * @param \Exception $e
+     * @param Exception $e
      *
-     * @throws \Exception
+     * @throws Exception
      */
-    public function processFailure(\Exception $e = null)
+    public function processFailure(Exception $e = null): void
     {
         throw $e;
     }
@@ -229,9 +247,9 @@ abstract class AbstractController
     /**
      * Method to get property Request
      *
-     * @return  Request
+     * @return  RequestInterface
      */
-    public function getRequest()
+    public function getRequest(): RequestInterface
     {
         return $this->request;
     }
@@ -239,11 +257,11 @@ abstract class AbstractController
     /**
      * Method to set property request
      *
-     * @param   Request $request
+     * @param   RequestInterface $request
      *
      * @return  static  Return self to support chaining.
      */
-    public function setRequest($request)
+    public function setRequest(RequestInterface $request)
     {
         $this->request = $request;
 
@@ -253,9 +271,9 @@ abstract class AbstractController
     /**
      * Method to get property Response
      *
-     * @return  Response
+     * @return  ResponseInterface
      */
-    public function getResponse()
+    public function getResponse(): ResponseInterface
     {
         return $this->response;
     }
@@ -263,11 +281,11 @@ abstract class AbstractController
     /**
      * Method to set property response
      *
-     * @param   Response $response
+     * @param   ResponseInterface $response
      *
      * @return  static  Return self to support chaining.
      */
-    public function setResponse($response)
+    public function setResponse(ResponseInterface $response)
     {
         $this->response = $response;
 

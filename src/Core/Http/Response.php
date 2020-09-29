@@ -26,7 +26,12 @@ use Apli\Support\Jsonable;
 use Apli\Support\Traits\Macroable;
 use ArrayObject;
 use JsonSerializable;
+use function is_array;
 
+/**
+ * Class Response
+ * @package Apli\Core\Http
+ */
 class Response extends DefaultResponse
 {
     use Macroable;
@@ -42,7 +47,7 @@ class Response extends DefaultResponse
      * @param  mixed  $content
      * @return $this
      */
-    public function setContent($content)
+    public function setContent($content): self
     {
         $this->original = $content;
 
@@ -50,7 +55,7 @@ class Response extends DefaultResponse
         // the content to JSON. This is useful when returning something like models
         // from routes that will be automatically transformed to their JSON form.
         if ($this->shouldBeJson($content)) {
-            $this->header('Content-Type', 'application/json');
+            $this->withHeader('Content-Type', 'application/json');
 
             $content = $this->morphToJson($content);
         }
@@ -66,7 +71,7 @@ class Response extends DefaultResponse
      * @param  mixed  $content
      * @return bool
      */
-    protected function shouldBeJson($content)
+    protected function shouldBeJson($content): bool
     {
         return $content instanceof Arrayable ||
             $content instanceof Jsonable ||
@@ -81,12 +86,14 @@ class Response extends DefaultResponse
      * @param  mixed   $content
      * @return string
      */
-    protected function morphToJson($content)
+    protected function morphToJson($content): string
     {
         if ($content instanceof Jsonable) {
             return $content->toJson();
-        } elseif ($content instanceof Arrayable) {
-            return json_encode($content->toArray());
+        }
+
+        if ($content instanceof Arrayable) {
+            $content = $content->toArray();
         }
 
         return json_encode($content);

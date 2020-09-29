@@ -14,13 +14,8 @@ namespace Apli\Core\View;
 
 
 /**
- * The AbstractView class.
- *
- * @property-read  ViewModel|mixed $model   The ViewModel object.
- * @property-read  Structure       $config  Config object.
- * @property-read  PackageRouter   $router  Router object.
- *
- * @since  2.1.5.3
+ * Class AbstractView
+ * @package Apli\Core\View
  */
 abstract class AbstractView implements \ArrayAccess
 {

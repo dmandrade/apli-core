@@ -12,12 +12,28 @@
 
 namespace Apli\Core\Http\Traits;
 
-use Apli\Http\DefaultUploadedFile;
-use Apli\Http\Message\UploadedFile;
 use Apli\Support\Arr;
+use Psr\Http\Message\UploadedFileInterface;
 
+/**
+ * Trait InteractsWithInput
+ * @package Apli\Core\Http\Traits
+ */
 trait InteractsWithInput
 {
+
+    /**
+     * Retrieve a route variable from the request.
+     *
+     * @param  string  $key
+     * @param  string|array|null  $default
+     * @return string|array
+     */
+    public function route($key = null, $default = null)
+    {
+        return $this->retrieveItem('routeParams', $key, $default);
+    }
+
     /**
      * Retrieve a server variable from the request.
      *
@@ -47,13 +63,16 @@ trait InteractsWithInput
      *
      * @return string|null
      */
-    public function bearerToken()
+    public function bearerToken(): ?string
     {
+        $token = null;
         $header = $this->header('Authorization', '');
 
         if (Str::startsWith($header, 'Bearer ')) {
-            return Str::substr($header, 7);
+            $token = Str::substr($header, 7);
         }
+
+        return $token;
     }
 
     /**
@@ -62,7 +81,7 @@ trait InteractsWithInput
      * @param  string|array  $key
      * @return bool
      */
-    public function exists($key)
+    public function exists($key): bool
     {
         return $this->has($key);
     }
@@ -73,7 +92,7 @@ trait InteractsWithInput
      * @param  string|array  $key
      * @return bool
      */
-    public function has($key)
+    public function has($key): bool
     {
         $keys = is_array($key) ? $key : func_get_args();
 
@@ -94,7 +113,7 @@ trait InteractsWithInput
      * @param  string|array  $keys
      * @return bool
      */
-    public function hasAny($keys)
+    public function hasAny($keys): bool
     {
         $keys = is_array($keys) ? $keys : func_get_args();
 
@@ -115,7 +134,7 @@ trait InteractsWithInput
      * @param  string|array  $key
      * @return bool
      */
-    public function filled($key)
+    public function filled($key): bool
     {
         $keys = is_array($key) ? $key : func_get_args();
 
@@ -134,7 +153,7 @@ trait InteractsWithInput
      * @param  string|array  $keys
      * @return bool
      */
-    public function anyFilled($keys)
+    public function anyFilled($keys): bool
     {
         $keys = is_array($keys) ? $keys : func_get_args();
 
@@ -153,7 +172,7 @@ trait InteractsWithInput
      * @param  string  $key
      * @return bool
      */
-    protected function isEmptyString($key)
+    protected function isEmptyString($key): bool
     {
         $value = $this->input($key);
 
@@ -165,7 +184,7 @@ trait InteractsWithInput
      *
      * @return array
      */
-    public function keys()
+    public function keys(): array
     {
         return array_merge(array_keys($this->input()), array_keys($this->uploadedFiles));
     }
@@ -176,7 +195,7 @@ trait InteractsWithInput
      * @param  array|mixed  $keys
      * @return array
      */
-    public function all($keys = null)
+    public function all($keys = null): array
     {
         $input = array_replace_recursive($this->input(), $this->allFiles());
 
@@ -213,7 +232,7 @@ trait InteractsWithInput
      * @param  array|mixed  $keys
      * @return array
      */
-    public function only($keys)
+    public function only($keys): array
     {
         $results = [];
 
@@ -238,7 +257,7 @@ trait InteractsWithInput
      * @param  array|mixed  $keys
      * @return array
      */
-    public function except($keys)
+    public function except($keys): array
     {
         $keys = is_array($keys) ? $keys : func_get_args();
 
@@ -280,9 +299,9 @@ trait InteractsWithInput
      * @param  string  $key
      * @return bool
      */
-    public function hasCookie($key)
+    public function hasCookie($key): bool
     {
-        return ! is_null($this->cookie($key));
+        return $this->cookie($key) !== null;
     }
 
     /**
@@ -302,7 +321,7 @@ trait InteractsWithInput
      *
      * @return array
      */
-    public function allFiles()
+    public function allFiles(): array
     {
         return $this->getUploadedFiles();
     }
@@ -313,7 +332,7 @@ trait InteractsWithInput
      * @param  string  $key
      * @return bool
      */
-    public function hasFile($key)
+    public function hasFile($key): bool
     {
         if (! is_array($files = $this->file($key))) {
             $files = [$files];
@@ -334,9 +353,9 @@ trait InteractsWithInput
      * @param  mixed  $file
      * @return bool
      */
-    protected function isValidFile($file)
+    protected function isValidFile($file): bool
     {
-        return $file instanceof UploadedFile && $file->getPath() !== '';
+        return $file instanceof UploadedFileInterface && $file->getPath() !== '';
     }
 
     /**
@@ -344,7 +363,7 @@ trait InteractsWithInput
      *
      * @param  string  $key
      * @param  mixed  $default
-     * @return \Illuminate\Http\UploadedFile|array|null
+     * @return UploadedFileInterface|array|null
      */
     public function file($key = null, $default = null)
     {
@@ -361,10 +380,97 @@ trait InteractsWithInput
      */
     protected function retrieveItem($source, $key, $default)
     {
-        if (is_null($key)) {
+        if ($key === null) {
             return $this->$source->all();
         }
 
         return $this->$source->get($key, $default);
+    }
+
+    /**
+     * Get the instance as an array.
+     *
+     * @return array
+     */
+    public function toArray(): array
+    {
+        return $this->all();
+    }
+
+    /**
+     * Determine if the given offset exists.
+     *
+     * @param  string  $offset
+     * @return bool
+     */
+    public function offsetExists($offset): bool
+    {
+        return array_key_exists(
+            $offset,
+            $this->all()
+        );
+    }
+
+    /**
+     * Get the value at the given offset.
+     *
+     * @param  string  $offset
+     * @return mixed
+     */
+    public function offsetGet($offset)
+    {
+        return $this->__get($offset);
+    }
+
+    /**
+     * Set the value at the given offset.
+     *
+     * @param  string  $offset
+     * @param  mixed  $value
+     * @return void
+     */
+    public function offsetSet($offset, $value): void
+    {
+    }
+
+    /**
+     * Remove the value at the given offset.
+     *
+     * @param  string  $offset
+     * @return void
+     */
+    public function offsetUnset($offset): void
+    {
+    }
+
+    /**
+     * Check if an input element is set on the request.
+     *
+     * @param  string  $key
+     * @return bool
+     */
+    public function __isset($key): bool
+    {
+        return $this->__get($key) !== null;
+    }
+
+    /**
+     * Get an input element from the request.
+     *
+     * @param  string  $key
+     * @return mixed
+     */
+    public function __get($key)
+    {
+        if (array_key_exists($key, $this->all())) {
+            return Arr::get($this->all(), $key);
+        }
+
+        return $this->route($key);
+    }
+
+    public function __set($name, $value)
+    {
+        // TODO: Implement __set() method.
     }
 }

@@ -11,7 +11,8 @@ namespace Apli\Core\Mvc;
 use Apli\Support\Queue\PriorityQueue;
 
 /**
- * The AbstractResolver class.
+ * Class AbstractClassResolver
+ * @package Apli\Core\Mvc
  */
 abstract class AbstractClassResolver
 {

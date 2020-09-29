@@ -11,9 +11,8 @@ namespace Apli\Core\Mvc;
 use Apli\Core\View\AbstractView;
 
 /**
- * The ViewResolver class.
- *
- * @since  3.0
+ * Class ViewResolver
+ * @package Apli\Core\Mvc
  */
 class ViewResolver extends AbstractClassResolver
 {

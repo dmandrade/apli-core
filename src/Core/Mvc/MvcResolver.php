@@ -19,7 +19,10 @@
 
 namespace Apli\Core\Mvc;
 
-
+/**
+ * Class MvcResolver
+ * @package Apli\Core\Mvc
+ */
 class MvcResolver
 {
 

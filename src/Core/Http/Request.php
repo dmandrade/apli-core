@@ -14,12 +14,15 @@ namespace Apli\Core\Http;
 
 use Apli\Core\Http\Traits\InteractsWithInput;
 use Apli\Http\DefaultServerRequest;
-use Apli\Http\Message\ServerRequest;
-use Apli\Http\ServerRequestFactory;
+use Psr\Http\Message\ServerRequestInterface;
 use Apli\Support\Arr;
 use Apli\Support\Arrayable;
 use Apli\Support\Traits\Macroable;
 use ArrayAccess;
+use function is_array;
+use function in_array;
+use function mb_strpos;
+use function json_decode;
 
 /**
  * Class Request
@@ -44,35 +47,28 @@ class Request extends DefaultServerRequest implements Arrayable, ArrayAccess
     protected $convertedFiles;
 
     /**
-     * Create a new Illuminate HTTP request from server variables.
-     *
-     * @return static
+     * @var array
      */
-    public static function capture()
-    {
-        return static::createFromBase(ServerRequestFactory::createFromGlobals());
-    }
+    protected $routeParams = [];
 
 
     /**
-     * Create an Illuminate request from a Symfony instance.
+     * Create request from a ServerRequestInterface instance.
      *
-     * @param  ServerRequest  $request
+     * @param  ServerRequestInterface  $request
      * @return self
      */
-    public static function createFromBase(ServerRequest $request)
+    public static function create(ServerRequestInterface $request): self
     {
         if ($request instanceof static) {
             return $request;
         }
 
-        $request = (new static)->duplicate(
+        return (new static)->duplicate(
             $request->getServerParams(), $request->getUploadedFiles(), $request->getCookieParams(),
             $request->getQueryParams(), $request->getHeaders(), $request->getParsedBody(), $request->getProtocolVersion(),
             $request->getMethod(), $request->getUri(), $request->getBody()
         );
-
-        return $request;
     }
 
     /**
@@ -80,11 +76,25 @@ class Request extends DefaultServerRequest implements Arrayable, ArrayAccess
      * @param array|null $uploadedFiles
      * @param array|null $cookies
      * @param array|null $queryParams
-     * @param null|array|object $parsedBody
-     * @param string $protocol
+     * @param array|null $headers
+     * @param            $parsedBody
+     * @param            $protocol
+     * @param            $method
+     * @param            $uri
+     * @param            $stream
      * @return Request
      */
-    public function duplicate(array $serverParams = null, array $uploadedFiles = null, array $cookies = null, array $queryParams = null, array $headers = null , $parsedBody, $protocol, $method, $uri, $stream)
+    public function duplicate(
+        array $serverParams = null,
+        array $uploadedFiles = null,
+        array $cookies = null,
+        array $queryParams = null,
+        array $headers = null,
+        $parsedBody,
+        $protocol,
+        $method,
+        $uri,
+        $stream)
     {
         /** @var self $dup */
         $dup = clone $this;
@@ -107,21 +117,19 @@ class Request extends DefaultServerRequest implements Arrayable, ArrayAccess
      * Filter the given array of files, removing any empty values.
      *
      * @param  mixed  $files
-     * @return mixed
+     * @return array
      */
-    protected function filterFiles($files)
+    protected function filterFiles(array $files): array
     {
-        if (! $files) {
-            return;
-        }
+        if ($files) {
+            foreach ($files as $key => $file) {
+                if (is_array($file)) {
+                    $files[$key] = $this->filterFiles($files[$key]);
+                }
 
-        foreach ($files as $key => $file) {
-            if (is_array($file)) {
-                $files[$key] = $this->filterFiles($files[$key]);
-            }
-
-            if (empty($files[$key])) {
-                unset($files[$key]);
+                if (empty($files[$key])) {
+                    unset($files[$key]);
+                }
             }
         }
 
@@ -133,7 +141,7 @@ class Request extends DefaultServerRequest implements Arrayable, ArrayAccess
      *
      * @return array
      */
-    protected function getInputSource()
+    protected function getInputSource(): array
     {
         if ($this->isJson()) {
             return $this->json();
@@ -149,7 +157,7 @@ class Request extends DefaultServerRequest implements Arrayable, ArrayAccess
      *
      * @see getMethod()
      */
-    public function getRealMethod()
+    public function getRealMethod(): string
     {
         return $this->getMethod();
     }
@@ -159,12 +167,12 @@ class Request extends DefaultServerRequest implements Arrayable, ArrayAccess
      *
      * @return bool
      */
-    public function isJson()
+    public function isJson(): bool
     {
         $haystack = $this->getHeaderLine('CONTENT_TYPE');
         $needles = ['/json', '+json'];
 
-        foreach ((array) $needles as $needle) {
+        foreach ($needles as $needle) {
             if ($needle !== '' && mb_strpos($haystack, $needle) !== false) {
                 return true;
             }
@@ -182,11 +190,11 @@ class Request extends DefaultServerRequest implements Arrayable, ArrayAccess
      */
     public function json($key = null, $default = null)
     {
-        if (! isset($this->json)) {
+        if ($this->json === null) {
             $this->json = (array) json_decode($this->stream->getContents(), true);
         }
 
-        if (is_null($key)) {
+        if ($key === null) {
             return $this->json;
         }
 
@@ -198,7 +206,7 @@ class Request extends DefaultServerRequest implements Arrayable, ArrayAccess
      *
      * @return bool
      */
-    public function ajax()
+    public function ajax(): bool
     {
         return $this->isXmlHttpRequest();
     }
@@ -213,9 +221,9 @@ class Request extends DefaultServerRequest implements Arrayable, ArrayAccess
      *
      * @return bool true if the request is an XMLHttpRequest, false otherwise
      */
-    public function isXmlHttpRequest()
+    public function isXmlHttpRequest(): bool
     {
-        return 'XMLHttpRequest' == $this->getHeader('X-Requested-With');
+        return 'XMLHttpRequest' === $this->getHeader('X-Requested-With');
     }
 
     /**
@@ -223,9 +231,9 @@ class Request extends DefaultServerRequest implements Arrayable, ArrayAccess
      *
      * @return bool
      */
-    public function pjax()
+    public function pjax(): bool
     {
-        return $this->getHeader('X-PJAX') == true;
+        return $this->getHeader('X-PJAX') === true;
     }
 
     /**
@@ -233,153 +241,8 @@ class Request extends DefaultServerRequest implements Arrayable, ArrayAccess
      *
      * @return string
      */
-    public function url()
+    public function url(): string
     {
         return rtrim(preg_replace('/\?.*/', '', $this->getUri()), '/');
-    }
-
-    /**
-     * This method belongs to Symfony HttpFoundation and is not usually needed when using Laravel.
-     *
-     * Instead, you may use the "input" method.
-     *
-     * @param  string  $key
-     * @param  mixed  $default
-     * @return mixed
-     */
-    public function get($key, $default = null)
-    {
-        if ($this !== $result = Arr::get($this->attributes, $key, $this)) {
-            return $result;
-        }
-
-        if ($this !== $result = Arr::get($this->queryParams, $key, $this)) {
-            return $result;
-        }
-
-        if ($this !== $result = Arr::get($this->parsedBody, $key, $this)) {
-            return $result;
-        }
-
-        return $default;
-    }
-
-    /**
-     * Retrieve an input item from the request.
-     *
-     * @param  string|null  $key
-     * @param  string|array|null  $default
-     * @return string|array|null
-     */
-    public function input($key = null, $default = null)
-    {
-        return Arr::get(
-            $this->getInputSource() + $this->queryParams, $key, $default
-        );
-    }
-
-    /**
-     * Get all of the input and files for the request.
-     *
-     * @param  array|mixed  $keys
-     * @return array
-     */
-    public function all($keys = null)
-    {
-        $input = array_replace_recursive($this->input(), $this->allFiles());
-
-        if (! $keys) {
-            return $input;
-        }
-
-        $results = [];
-
-        foreach (is_array($keys) ? $keys : func_get_args() as $key) {
-            Arr::set($results, $key, Arr::get($input, $key));
-        }
-
-        return $results;
-    }
-
-    /**
-     * Get the instance as an array.
-     *
-     * @return array
-     */
-    public function toArray()
-    {
-        return $this->all();
-    }
-
-    /**
-     * Determine if the given offset exists.
-     *
-     * @param  string  $offset
-     * @return bool
-     */
-    public function offsetExists($offset)
-    {
-        return array_key_exists(
-            $offset,
-            $this->all()
-        );
-    }
-
-    /**
-     * Get the value at the given offset.
-     *
-     * @param  string  $offset
-     * @return mixed
-     */
-    public function offsetGet($offset)
-    {
-        return $this->__get($offset);
-    }
-
-    /**
-     * Set the value at the given offset.
-     *
-     * @param  string  $offset
-     * @param  mixed  $value
-     * @return void
-     */
-    public function offsetSet($offset, $value)
-    {
-    }
-
-    /**
-     * Remove the value at the given offset.
-     *
-     * @param  string  $offset
-     * @return void
-     */
-    public function offsetUnset($offset)
-    {
-    }
-
-    /**
-     * Check if an input element is set on the request.
-     *
-     * @param  string  $key
-     * @return bool
-     */
-    public function __isset($key)
-    {
-        return ! is_null($this->__get($key));
-    }
-
-    /**
-     * Get an input element from the request.
-     *
-     * @param  string  $key
-     * @return mixed
-     */
-    public function __get($key)
-    {
-        if (array_key_exists($key, $this->all())) {
-            return Arr::get($this->all(), $key);
-        }
-
-        return $this->route($key);
     }
 }

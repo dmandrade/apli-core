@@ -13,13 +13,13 @@
 namespace Apli\Core\Application;
 
 use Apli\Application\AbstractWebApplication;
-use Apli\Core\Http\HttpFactory;
 use Apli\Data\Map;
 use Apli\Environment\Environment;
+use Apli\Http\Emitter\SapiEmitter;
 use Apli\Http\HttpFactoryInterface;
 use Apli\Uri\UriException;
 use Apli\Router\Router;
-use Exception;
+use Psr\Http\Message\ServerRequestInterface;
 
 /**
  * Class WebApplication
@@ -31,32 +31,15 @@ use Exception;
 class WebApplication extends AbstractWebApplication
 {
     /**
-     * Property name.
-     *
-     * @var  string
-     */
-    protected $name = 'web';
-
-    /**
-     * Property mode.
-     *
-     * @var  string
-     */
-    protected $mode;
-
-    /**
-     * Property configPath.
-     *
-     * @var  string
-     */
-    protected $rootPath;
-
-    /**
      * Property router.
      *
      * @var  Router
      */
     protected $router;
+    /**
+     * @var ServerRequestInterface
+     */
+    protected $request;
 
     /**
      * @var array
@@ -83,27 +66,29 @@ class WebApplication extends AbstractWebApplication
     {
         parent::__construct($httpFactory, $config, $environment);
 
-        $this->name     = $this->config->get('name', $this->name);
-        $this->rootPath = $this->config->get('path.root', $this->rootPath);
         $this->set('execution.start', microtime(true));
         $this->set('execution.memory', memory_get_usage());
+    }
+
+    /**
+     * Prepare execute hook.
+     *
+     * @return void
+     */
+    protected function init(): void
+    {
+        $this->request = $this->serverRequestCreator->fromGlobals();
+        $this->getEmitter()->push(new SapiEmitter());
     }
 
     /**
      * Method to dispatch http route request
      *
      * @return mixed
-     * @throws Exception
      */
     public function doExecute()
     {
-        $route = explode('/', trim(@$_GET['r'], '/'));
-
-        if ($this->router === null) {
-            throw (new Exception('this->Router was not set', - 2));
-        }
-
-        return $this->getRouter()->callRoute($route);
+        return $this->getRouter()->handle($this->request);
     }
 
     /**
@@ -116,29 +101,5 @@ class WebApplication extends AbstractWebApplication
         }
 
         return $this->router;
-    }
-
-    /**
-     * Method to get property Mode
-     *
-     * @return  string
-     */
-    public function getMode(): string
-    {
-        return $this->mode;
-    }
-
-    /**
-     * Method to set property mode
-     *
-     * @param   string $mode
-     *
-     * @return  static  Return self to support chaining.
-     */
-    public function setMode($mode): self
-    {
-        $this->mode = $mode;
-
-        return $this;
     }
 }

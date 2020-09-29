@@ -104,6 +104,7 @@ abstract class AbstractController
     public function __invoke($request, $params) {
         $result = false;
         try {
+//            var_dump([$request, $params]);
             $this->request = $request;
             $this->params = $params;
 
